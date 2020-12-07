@@ -168,6 +168,8 @@ class Test(unittest.TestCase):
         :param job: The job that this test is part of.
         :raises: :class:`avocado.core.test.NameNotTestNameError`
         """
+        self.__phase = 'INIT'
+
         def record_and_warn(*args, **kwargs):
             """ Record call to this function and log warning """
             if not self.__log_warn_used:
@@ -433,6 +435,15 @@ class Test(unittest.TestCase):
     def traceback(self):
         return self.__traceback
 
+    @property
+    def phase(self):
+        """
+        The current phase of the test execution
+
+        Possible (string) values are: INIT, SETUP, TEST, TEARDOWN and FINISHED
+        """
+        return self.__phase
+
     def __str__(self):
         return str(self.name)
 
@@ -475,7 +486,7 @@ class Test(unittest.TestCase):
                          'status', 'time_elapsed',
                          'traceback', 'workdir', 'whiteboard', 'time_start',
                          'time_end', 'running', 'paused', 'paused_msg',
-                         'fail_class', 'params', "timeout"]
+                         'fail_class', 'params', "timeout", 'phase']
         state = {key: getattr(self, key, None) for (key) in preserve_attr}
         state['class_name'] = self.__class__.__name__
         state['job_logdir'] = self.job.logdir
@@ -579,6 +590,7 @@ class Test(unittest.TestCase):
         skip_test = getattr(testMethod, '__skip_test_decorator__', False)
         try:
             if skip_test is False:
+                self.__phase = 'SETUP'
                 self.setUp()
         except (exceptions.TestSetupSkip, exceptions.TestSkipError) as details:
             stacktrace.log_exc_info(sys.exc_info(), logger=LOG_JOB)
@@ -592,6 +604,7 @@ class Test(unittest.TestCase):
             raise exceptions.TestSetupFail(details)
         else:
             try:
+                self.__phase = 'TEST'
                 testMethod()
             except exceptions.TestSetupSkip as details:
                 stacktrace.log_exc_info(sys.exc_info(), logger=LOG_JOB)
@@ -619,6 +632,7 @@ class Test(unittest.TestCase):
         finally:
             try:
                 if skip_test is False:
+                    self.__phase = 'TEARDOWN'
                     self.tearDown()
             except exceptions.TestSetupSkip as details:
                 stacktrace.log_exc_info(sys.exc_info(), logger=LOG_JOB)
@@ -742,6 +756,7 @@ class Test(unittest.TestCase):
             for e_line in tb_info:
                 self.log.error(e_line)
         finally:
+            self.__phase = 'FINISHED'
             self._tag_end()
             self._report()
             self.log.info("")
