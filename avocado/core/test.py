@@ -252,6 +252,20 @@ class Test(unittest.TestCase):
 
         unittest.TestCase.__init__(self, methodName=methodName)
 
+    def setUp(self):
+        """
+        Set up
+        """
+        self.report_state()
+        super(Test, self).setUp()
+
+    def tearDown(self):
+        """
+        Tear down after each test case
+        """
+        self.report_state()
+        super(Test, self).tearDown()
+
     @property
     def name(self):
         """

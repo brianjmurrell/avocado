@@ -45,6 +45,8 @@ TIMEOUT_TEST_INTERRUPTED = 1
 TIMEOUT_PROCESS_DIED = 10
 #: when test reported status but the process did not finish
 TIMEOUT_PROCESS_ALIVE = 60
+#: extra timeout to give to a test in TEARDOWN phase
+TIMEOUT_TEARDOWN = 60
 
 
 def add_runner_failure(test_state, new_status, message):
@@ -220,7 +222,7 @@ class TestStatus(object):
                       step)
         if self.status:     # status exists, wait for process to finish
             deadline = min(deadline, time.time() + TIMEOUT_PROCESS_ALIVE)
-            while time.time() < deadline:
+            while time.time() < deadline + TIMEOUT_TEARDOWN:
                 result_dispatcher.map_method('test_progress', False)
                 if wait.wait_for(lambda: not proc.is_alive(), 1, 0,
                                  step):
@@ -413,13 +415,17 @@ class TestRunner(object):
 
         while True:
             try:
-                if time.time() >= deadline:
+                now = time.time()
+                if test_status.status.get('phase') == 'TEARDOWN':
+                    reached = now >= deadline + TIMEOUT_TEARDOWN
+                else:
+                    reached = now >= deadline
+                if reached:
                     abort_reason = "Timeout reached"
                     try:
                         os.kill(proc.pid, signal.SIGTERM)
                     except OSError:
                         pass
-                    break
                 wait.wait_for(lambda: not queue.empty() or not proc.is_alive(),
                               cycle_timeout, first, step)
                 if test_status.interrupt:
